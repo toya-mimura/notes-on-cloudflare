@@ -1,0 +1,24 @@
+{
+  "name": "cloudflare-blog-system",
+  "version": "1.0.0",
+  "description": "X-like posting experience with Substack-like UI on Cloudflare Workers",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 execute blog-db --local --file=./schema.sql",
+    "db:migrate:remote": "wrangler d1 execute blog-db --remote --file=./schema.sql"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "blog",
+    "d1",
+    "r2"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

@@ -1,0 +1,36 @@
+name = "cloudflare-blog-system"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "blog-db"
+database_id = "" # Will be filled after creating the database
+
+# R2 Bucket for images
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "blog-images"
+
+# KV Namespace for rate limiting and sessions
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "" # Will be filled after creating the KV namespace
+
+[[kv_namespaces]]
+binding = "SESSION_KV"
+id = "" # Will be filled after creating the KV namespace
+
+# Environment variables (use `wrangler secret put` for sensitive values)
+[vars]
+SITE_URL = "http://localhost:8787"
+SITE_NAME = "My Blog"
+ALLOWED_ORIGINS = "http://localhost:8787"
+
+# For production, set these via Cloudflare Dashboard or `wrangler secret put`:
+# - GOOGLE_CLIENT_ID
+# - GOOGLE_CLIENT_SECRET
+# - GOOGLE_REDIRECT_URI
+# - ALLOWED_EMAIL
+# - SESSION_SECRET
