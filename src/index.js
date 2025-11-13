@@ -1192,7 +1192,7 @@ async function handlePostPage(env, postId) {
     const ogTitle = post.content.substring(0, 100).replace(/<[^>]*>/g, '');
     const ogDescription = post.content.substring(0, 200).replace(/<[^>]*>/g, '');
     const ogImage = post.image_url || '';
-    const ogUrl = \`\${env.SITE_URL}/post/\${postId}\`;
+    const ogUrl = env.SITE_URL + '/post/' + postId;
 
     const html = \`
 <!DOCTYPE html>
