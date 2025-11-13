@@ -610,13 +610,15 @@ async function handleGetLikes(request, env, postId) {
  * トップページハンドラー
  */
 async function handleIndexPage(env) {
+  const siteName = env.SITE_NAME || 'My Blog';
+
   const html = `
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${env.SITE_NAME || 'My Blog'}</title>
+  <title>${siteName}</title>
   <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <style>
@@ -1028,7 +1030,7 @@ async function handleIndexPage(env) {
   <script>
     function blogApp() {
       return {
-        siteName: '${env.SITE_NAME || 'My Blog'}',
+        siteName: '${siteName}',
         posts: [],
         tags: [],
         selectedTag: null,
@@ -1189,25 +1191,25 @@ async function handlePostPage(env, postId) {
     post.tags = tags.map(t => t.name);
 
     // OGPメタタグ用のデータ
+    const siteName = env.SITE_NAME || 'My Blog';
     const ogTitle = post.content.substring(0, 100).replace(/<[^>]*>/g, '');
     const ogDescription = post.content.substring(0, 200).replace(/<[^>]*>/g, '');
     const ogImage = post.image_url || '';
     const ogUrl = env.SITE_URL + '/post/' + postId;
-    
 
-    const html = \`
+    const html = `
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>\${ogTitle} - \${env.SITE_NAME || 'My Blog'}</title>
+  <title>${ogTitle} - ${siteName}</title>
 
   <!-- OGP Meta Tags -->
-  <meta property="og:title" content="\${ogTitle}">
-  <meta property="og:description" content="\${ogDescription}">
-  \${ogImage ? \`<meta property="og:image" content="\${ogImage}">\` : ''}
-  <meta property="og:url" content="\${ogUrl}">
+  <meta property="og:title" content="${ogTitle}">
+  <meta property="og:description" content="${ogDescription}">
+  ${ogImage ? `<meta property="og:image" content="${ogImage}">` : ''}
+  <meta property="og:url" content="${ogUrl}">
   <meta property="og:type" content="article">
   <meta name="twitter:card" content="summary_large_image">
 
@@ -1419,7 +1421,7 @@ async function handlePostPage(env, postId) {
   <script>
     function postPage() {
       return {
-        post: \${JSON.stringify(post)},
+        post: ${JSON.stringify(post)},
         likes: 0,
         liked: false,
 
@@ -1429,7 +1431,7 @@ async function handlePostPage(env, postId) {
 
         async loadLikes() {
           try {
-            const response = await fetch('/api/likes/\${postId}');
+            const response = await fetch('/api/likes/${postId}');
             const data = await response.json();
             this.likes = data.likes;
             this.liked = data.liked;
@@ -1440,7 +1442,7 @@ async function handlePostPage(env, postId) {
 
         async toggleLike() {
           try {
-            const response = await fetch('/api/like/\${postId}', {
+            const response = await fetch('/api/like/${postId}', {
               method: 'POST'
             });
             const data = await response.json();
@@ -1502,7 +1504,7 @@ async function handlePostPage(env, postId) {
   </script>
 </body>
 </html>
-    \`;
+    `;
 
     return htmlResponse(html);
   } catch (error) {
