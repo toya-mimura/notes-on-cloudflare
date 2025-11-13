@@ -1129,7 +1129,7 @@ async function handleIndexPage(env) {
 
           // spoilerタグ（||text||）を処理
           html = html.replace(/\\|\\|([^|]+)\\|\\|/g,
-            '<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>'
+            '<span class="spoiler" onclick="this.classList.toggle(\\\\'revealed\\\\')">$1</span>'
           );
 
           return html;
