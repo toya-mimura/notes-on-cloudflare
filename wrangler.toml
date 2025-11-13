@@ -6,7 +6,7 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "blog-db"
-database_id = "" # Will be filled after creating the database
+database_id = "43b6952c-a7c6-4c06-ba9e-97bc667c1f89"
 
 # R2 Bucket for images
 [[r2_buckets]]
@@ -16,17 +16,17 @@ bucket_name = "blog-images"
 # KV Namespace for rate limiting and sessions
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "" # Will be filled after creating the KV namespace
+id = "e072eb7568fb453980aff0044ffec45f"
 
 [[kv_namespaces]]
 binding = "SESSION_KV"
-id = "" # Will be filled after creating the KV namespace
+id = "a0744b6d6e054327a01fcbf0ff03d8a6"
 
 # Environment variables (use `wrangler secret put` for sensitive values)
 [vars]
-SITE_URL = "http://localhost:8787"
+SITE_URL = "https://cloudflare-blog-system.twc4.workers.dev"
 SITE_NAME = "My Blog"
-ALLOWED_ORIGINS = "http://localhost:8787"
+ALLOWED_ORIGINS = "https://cloudflare-blog-system.twc4.workers.dev"
 
 # For production, set these via Cloudflare Dashboard or `wrangler secret put`:
 # - GOOGLE_CLIENT_ID
