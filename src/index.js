@@ -1182,11 +1182,9 @@ async function handlePostPage(env, postId) {
     }
 
     // タグを取得
-    const tagsStmt = env.DB.prepare(\`
-      SELECT t.name FROM tags t
-      JOIN post_tags pt ON t.id = pt.tag_id
-      WHERE pt.post_id = ?
-    \`).bind(postId);
+    const tagsStmt = env.DB.prepare(
+      'SELECT t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = ?'
+    ).bind(postId);
     const { results: tags } = await tagsStmt.all();
     post.tags = tags.map(t => t.name);
 
