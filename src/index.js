@@ -1127,11 +1127,6 @@ async function handleIndexPage(env) {
           // marked.jsでMarkdownをHTMLに変換
           let html = marked.parse(content);
 
-          // spoilerタグ（||text||）を処理
-          html = html.replace(/\\|\\|([^|]+)\\|\\|/g,
-            '<span class="spoiler" onclick="this.classList.toggle(\\\\'revealed\\\\')">$1</span>'
-          );
-
           return html;
         },
 
@@ -1480,11 +1475,6 @@ async function handlePostPage(env, postId) {
           if (!content) return '';
 
           let html = marked.parse(content);
-
-          // spoilerタグ（||text||）を処理
-          html = html.replace(/\\|\\|([^|]+)\\|\\|/g,
-            '<span class="spoiler" onclick="this.classList.toggle(\\'revealed\\')">$1</span>'
-          );
 
           return html;
         },
