@@ -564,6 +564,16 @@ async function handleAPI(request, env, pathname) {
     return handleGetLikes(request, env, postId);
   }
 
+  // POST /api/upload - 画像アップロード
+  if (pathname === '/api/upload' && method === 'POST') {
+    // 認証チェック
+    const authenticated = await isAuthenticated(request, env);
+    if (!authenticated) {
+      return jsonResponse({ error: 'Unauthorized' }, 401);
+    }
+    return handleImageUpload(request, env);
+  }
+
   return jsonResponse({ error: 'Not found' }, 404);
 }
 
@@ -912,6 +922,93 @@ async function handleGetLikes(request, env, postId) {
   } catch (error) {
     console.error('Error fetching likes:', error);
     return jsonResponse({ error: 'Failed to fetch likes' }, 500);
+  }
+}
+
+/**
+ * POST /api/upload - 画像アップロード
+ */
+async function handleImageUpload(request, env) {
+  try {
+    if (!env.R2) {
+      return jsonResponse({ error: 'R2 bucket not configured' }, 500);
+    }
+
+    const formData = await request.formData();
+    const imageFile = formData.get('image');
+
+    if (!imageFile) {
+      return jsonResponse({ error: 'No image file provided' }, 400);
+    }
+
+    // ファイルタイプチェック
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(imageFile.type)) {
+      return jsonResponse({ error: 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP' }, 400);
+    }
+
+    // ファイルサイズチェック (5MB制限)
+    if (imageFile.size > 5 * 1024 * 1024) {
+      return jsonResponse({ error: 'File size exceeds 5MB limit' }, 400);
+    }
+
+    // ファイル名を生成（タイムスタンプ + ランダム文字列）
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 10);
+    const ext = imageFile.name.split('.').pop();
+    const filename = `${timestamp}-${randomStr}.${ext}`;
+
+    // R2にアップロード
+    await env.R2.put(filename, imageFile.stream(), {
+      httpMetadata: {
+        contentType: imageFile.type
+      }
+    });
+
+    // 公開URLを生成
+    // Note: R2のPublic Bucketを使用している場合、またはCustom Domainを設定している場合
+    // ここではWorker経由で画像を提供する想定
+    const imageUrl = `${env.SITE_URL}/images/${filename}`;
+
+    return jsonResponse({
+      success: true,
+      url: imageUrl,
+      filename: filename
+    });
+
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    return jsonResponse({ error: 'Failed to upload image' }, 500);
+  }
+}
+
+/**
+ * 画像取得ハンドラー (R2から画像を取得)
+ */
+async function handleImageGet(env, filename) {
+  try {
+    if (!env.R2) {
+      return new Response('R2 bucket not configured', { status: 500 });
+    }
+
+    const object = await env.R2.get(filename);
+
+    if (!object) {
+      return new Response('Image not found', { status: 404 });
+    }
+
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set('etag', object.httpEtag);
+    headers.set('cache-control', 'public, max-age=31536000');
+
+    return new Response(object.body, {
+      headers
+    });
+
+  } catch (error) {
+    console.error('Error fetching image:', error);
+    return new Response('Failed to fetch image', { status: 500 });
   }
 }
 
@@ -1742,6 +1839,673 @@ async function handleAdminDashboard(request, env) {
 }
 
 /**
+ * 新規投稿画面
+ */
+async function handleNewPost(env) {
+  const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新規投稿 - ${env.SITE_NAME || 'Blog'}</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #f5f5f5;
+    }
+
+    .header {
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      color: #333;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      display: inline-block;
+    }
+
+    .btn-primary {
+      background: #1da1f2;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1a91da;
+    }
+
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #d0d0d0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 24px auto;
+      padding: 0 24px;
+    }
+
+    .editor-container {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-group {
+      margin-bottom: 24px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 15px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      resize: vertical;
+      min-height: 200px;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #1da1f2;
+    }
+
+    input[type="text"],
+    input[type="file"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #1da1f2;
+    }
+
+    .preview {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .preview h3 {
+      margin-bottom: 12px;
+      color: #333;
+    }
+
+    .preview-content {
+      padding: 16px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      min-height: 100px;
+    }
+
+    .help-text {
+      font-size: 13px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .image-preview {
+      margin-top: 12px;
+      max-width: 400px;
+    }
+
+    .image-preview img {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .loading {
+      display: none;
+      color: #666;
+      margin-left: 12px;
+    }
+
+    .loading.show {
+      display: inline;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📝 新規投稿</h1>
+    <div class="header-actions">
+      <a href="/admin" class="btn btn-secondary">キャンセル</a>
+      <button onclick="submitPost()" class="btn btn-primary" id="submitBtn">投稿する</button>
+      <span class="loading" id="loading">投稿中...</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="editor-container">
+      <div class="form-group">
+        <label for="content">内容</label>
+        <textarea id="content" placeholder="投稿内容を入力してください（Markdown対応）"></textarea>
+        <div class="help-text">Markdown記法が使えます。例: **太字**、*斜体*、# 見出し</div>
+      </div>
+
+      <div class="form-group">
+        <label for="image">画像</label>
+        <input type="file" id="image" accept="image/*" onchange="previewImage(this)">
+        <div class="help-text">投稿に添付する画像を選択できます</div>
+        <div class="image-preview" id="imagePreview"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="tags">タグ</label>
+        <input type="text" id="tags" placeholder="タグ1, タグ2, タグ3">
+        <div class="help-text">カンマ区切りで複数のタグを指定できます</div>
+      </div>
+
+      <div class="preview">
+        <h3>プレビュー</h3>
+        <div class="preview-content" id="preview"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const contentInput = document.getElementById('content');
+    const previewDiv = document.getElementById('preview');
+
+    // リアルタイムプレビュー
+    contentInput.addEventListener('input', () => {
+      const markdown = contentInput.value;
+      previewDiv.innerHTML = markdown ? marked.parse(markdown) : '<em>プレビューがここに表示されます</em>';
+    });
+
+    // 画像プレビュー
+    function previewImage(input) {
+      const previewDiv = document.getElementById('imagePreview');
+      previewDiv.innerHTML = '';
+
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          previewDiv.innerHTML = '<img src="' + e.target.result + '" alt="Preview">';
+        };
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    // 投稿送信
+    async function submitPost() {
+      const content = document.getElementById('content').value.trim();
+      const imageFile = document.getElementById('image').files[0];
+      const tagsInput = document.getElementById('tags').value.trim();
+
+      if (!content) {
+        alert('内容を入力してください');
+        return;
+      }
+
+      const submitBtn = document.getElementById('submitBtn');
+      const loading = document.getElementById('loading');
+
+      submitBtn.disabled = true;
+      loading.classList.add('show');
+
+      try {
+        let imageUrl = null;
+
+        // 画像アップロード
+        if (imageFile) {
+          const formData = new FormData();
+          formData.append('image', imageFile);
+
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error('画像のアップロードに失敗しました');
+          }
+
+          const uploadData = await uploadResponse.json();
+          imageUrl = uploadData.url;
+        }
+
+        // 投稿作成
+        const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
+
+        const response = await fetch('/api/posts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            content,
+            image_url: imageUrl,
+            tags
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('投稿の作成に失敗しました');
+        }
+
+        const data = await response.json();
+        alert('投稿しました！');
+        location.href = '/admin';
+
+      } catch (error) {
+        alert('エラーが発生しました: ' + error.message);
+        submitBtn.disabled = false;
+        loading.classList.remove('show');
+      }
+    }
+  </script>
+</body>
+</html>
+  `;
+
+  return htmlResponse(html);
+}
+
+/**
+ * 投稿編集画面
+ */
+async function handleEditPost(env, postId) {
+  // 投稿を取得
+  const post = await env.DB.prepare(
+    'SELECT * FROM posts WHERE id = ?'
+  ).bind(postId).first();
+
+  if (!post) {
+    return htmlResponse('<h1>投稿が見つかりません</h1>', 404);
+  }
+
+  // タグを取得
+  const tagsStmt = env.DB.prepare(
+    'SELECT t.name FROM tags t JOIN post_tags pt ON t.id = pt.tag_id WHERE pt.post_id = ?'
+  ).bind(postId);
+  const { results: tags } = await tagsStmt.all();
+  const tagsStr = tags.map(t => t.name).join(', ');
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>投稿編集 - ${env.SITE_NAME || 'Blog'}</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #f5f5f5;
+    }
+
+    .header {
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      color: #333;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      display: inline-block;
+    }
+
+    .btn-primary {
+      background: #1da1f2;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1a91da;
+    }
+
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #d0d0d0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 24px auto;
+      padding: 0 24px;
+    }
+
+    .editor-container {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-group {
+      margin-bottom: 24px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 15px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      resize: vertical;
+      min-height: 200px;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #1da1f2;
+    }
+
+    input[type="text"],
+    input[type="file"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #1da1f2;
+    }
+
+    .preview {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .preview h3 {
+      margin-bottom: 12px;
+      color: #333;
+    }
+
+    .preview-content {
+      padding: 16px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      min-height: 100px;
+    }
+
+    .help-text {
+      font-size: 13px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .current-image {
+      margin-top: 12px;
+      max-width: 400px;
+    }
+
+    .current-image img {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .image-preview {
+      margin-top: 12px;
+      max-width: 400px;
+    }
+
+    .image-preview img {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .loading {
+      display: none;
+      color: #666;
+      margin-left: 12px;
+    }
+
+    .loading.show {
+      display: inline;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>✏️ 投稿編集</h1>
+    <div class="header-actions">
+      <a href="/admin" class="btn btn-secondary">キャンセル</a>
+      <button onclick="updatePost()" class="btn btn-primary" id="submitBtn">更新する</button>
+      <span class="loading" id="loading">更新中...</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="editor-container">
+      <div class="form-group">
+        <label for="content">内容</label>
+        <textarea id="content">${post.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+        <div class="help-text">Markdown記法が使えます。例: **太字**、*斜体*、# 見出し</div>
+      </div>
+
+      <div class="form-group">
+        <label for="image">画像</label>
+        ${post.image_url ? `
+          <div class="current-image">
+            <div class="help-text">現在の画像:</div>
+            <img src="${post.image_url}" alt="Current">
+          </div>
+        ` : ''}
+        <input type="file" id="image" accept="image/*" onchange="previewImage(this)" style="margin-top: 12px;">
+        <div class="help-text">新しい画像を選択すると、現在の画像が置き換わります</div>
+        <div class="image-preview" id="imagePreview"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="tags">タグ</label>
+        <input type="text" id="tags" value="${tagsStr}" placeholder="タグ1, タグ2, タグ3">
+        <div class="help-text">カンマ区切りで複数のタグを指定できます</div>
+      </div>
+
+      <div class="preview">
+        <h3>プレビュー</h3>
+        <div class="preview-content" id="preview"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const contentInput = document.getElementById('content');
+    const previewDiv = document.getElementById('preview');
+
+    // 初期プレビュー
+    previewDiv.innerHTML = marked.parse(contentInput.value);
+
+    // リアルタイムプレビュー
+    contentInput.addEventListener('input', () => {
+      const markdown = contentInput.value;
+      previewDiv.innerHTML = markdown ? marked.parse(markdown) : '<em>プレビューがここに表示されます</em>';
+    });
+
+    // 画像プレビュー
+    function previewImage(input) {
+      const previewDiv = document.getElementById('imagePreview');
+      previewDiv.innerHTML = '';
+
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          previewDiv.innerHTML = '<img src="' + e.target.result + '" alt="Preview">';
+        };
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    // 投稿更新
+    async function updatePost() {
+      const content = document.getElementById('content').value.trim();
+      const imageFile = document.getElementById('image').files[0];
+      const tagsInput = document.getElementById('tags').value.trim();
+
+      if (!content) {
+        alert('内容を入力してください');
+        return;
+      }
+
+      const submitBtn = document.getElementById('submitBtn');
+      const loading = document.getElementById('loading');
+
+      submitBtn.disabled = true;
+      loading.classList.add('show');
+
+      try {
+        let imageUrl = '${post.image_url || ''}';
+
+        // 新しい画像がアップロードされた場合
+        if (imageFile) {
+          const formData = new FormData();
+          formData.append('image', imageFile);
+
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error('画像のアップロードに失敗しました');
+          }
+
+          const uploadData = await uploadResponse.json();
+          imageUrl = uploadData.url;
+        }
+
+        // 投稿更新
+        const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
+
+        const response = await fetch('/api/posts/${postId}', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            content,
+            image_url: imageUrl || null,
+            tags
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('投稿の更新に失敗しました');
+        }
+
+        alert('更新しました！');
+        location.href = '/admin';
+
+      } catch (error) {
+        alert('エラーが発生しました: ' + error.message);
+        submitBtn.disabled = false;
+        loading.classList.remove('show');
+      }
+    }
+  </script>
+</body>
+</html>
+  `;
+
+  return htmlResponse(html);
+}
+
+/**
  * 個別投稿ページハンドラー
  */
 async function handlePostPage(env, postId) {
@@ -2127,6 +2891,64 @@ export default {
       });
 
       return response;
+    }
+
+    // 画像取得
+    if (pathname.startsWith('/images/')) {
+      const filename = pathname.split('/')[2];
+      return handleImageGet(env, filename);
+    }
+
+    // ログイン
+    if (pathname === '/login') {
+      return handleLoginPage(env);
+    }
+
+    // OAuth コールバック
+    if (pathname === '/auth/callback') {
+      return handleAuthCallback(request, env);
+    }
+
+    // ログアウト
+    if (pathname === '/logout') {
+      return handleLogout(request, env);
+    }
+
+    // 管理画面（認証必須）
+    if (pathname === '/admin') {
+      const authenticated = await isAuthenticated(request, env);
+      if (!authenticated) {
+        return new Response(null, {
+          status: 302,
+          headers: { 'Location': '/login' }
+        });
+      }
+      return handleAdminDashboard(request, env);
+    }
+
+    // 新規投稿画面（認証必須）
+    if (pathname === '/admin/posts/new') {
+      const authenticated = await isAuthenticated(request, env);
+      if (!authenticated) {
+        return new Response(null, {
+          status: 302,
+          headers: { 'Location': '/login' }
+        });
+      }
+      return handleNewPost(env);
+    }
+
+    // 投稿編集画面（認証必須）
+    if (pathname.match(/^\/admin\/posts\/[^/]+\/edit$/)) {
+      const authenticated = await isAuthenticated(request, env);
+      if (!authenticated) {
+        return new Response(null, {
+          status: 302,
+          headers: { 'Location': '/login' }
+        });
+      }
+      const postId = pathname.split('/')[3];
+      return handleEditPost(env, postId);
     }
 
     // 個別投稿ページ
