@@ -1194,7 +1194,7 @@ async function handlePostPage(env, postId) {
     const ogImage = post.image_url || '';
     const ogUrl = env.SITE_URL + '/post/' + postId;
 
-    const html = \`
+    const html = `
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -1501,7 +1501,7 @@ async function handlePostPage(env, postId) {
   </script>
 </body>
 </html>
-    \`;
+    `;
 
     return htmlResponse(html);
   } catch (error) {
