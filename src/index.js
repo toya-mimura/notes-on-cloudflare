@@ -1122,7 +1122,7 @@ async function handleIndexPage(env) {
       background-color: var(--color-bg-secondary);
       color: var(--color-text);
       border: 1px solid var(--color-border);
-      border-radius: 20px;
+      border-radius: 0px;
       text-decoration: none;
       white-space: nowrap;
       font-size: 14px;
