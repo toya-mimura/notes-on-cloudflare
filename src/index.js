@@ -345,7 +345,7 @@ function handleLoginPage(env) {
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #0f0f0f;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -354,33 +354,35 @@ function handleLoginPage(env) {
     }
 
     .login-container {
-      background: white;
+      background: #1a1a1a;
+      border: 1px solid #2d2d2d;
       border-radius: 12px;
       padding: 60px 40px;
       max-width: 400px;
       width: 100%;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
       text-align: center;
     }
 
     h1 {
       font-size: 28px;
       margin-bottom: 10px;
-      color: #333;
+      color: #ffffff;
     }
 
     p {
-      color: #666;
+      color: #b0b0b0;
       margin-bottom: 40px;
+      line-height: 1.6;
     }
 
     .google-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: white;
-      color: #444;
-      border: 2px solid #ddd;
+      background: #2d2d2d;
+      color: #ffffff;
+      border: 2px solid #404040;
       border-radius: 8px;
       padding: 12px 24px;
       font-size: 16px;
@@ -392,6 +394,7 @@ function handleLoginPage(env) {
     }
 
     .google-btn:hover {
+      background: #353535;
       border-color: #4285f4;
       box-shadow: 0 2px 8px rgba(66, 133, 244, 0.3);
     }
@@ -405,13 +408,14 @@ function handleLoginPage(env) {
     .back-link {
       display: block;
       margin-top: 30px;
-      color: #667eea;
+      color: #1da1f2;
       text-decoration: none;
       font-size: 14px;
     }
 
     .back-link:hover {
       text-decoration: underline;
+      color: #1a91da;
     }
   </style>
 </head>
@@ -1597,12 +1601,12 @@ async function handleAdminDashboard(request, env) {
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: #f5f5f5;
+      background: #0f0f0f;
     }
 
     .header {
-      background: white;
-      border-bottom: 1px solid #e0e0e0;
+      background: #1a1a1a;
+      border-bottom: 1px solid #2d2d2d;
       padding: 16px 24px;
       display: flex;
       justify-content: space-between;
@@ -1617,13 +1621,14 @@ async function handleAdminDashboard(request, env) {
 
     .header-left h1 {
       font-size: 20px;
-      color: #333;
+      color: #ffffff;
     }
 
     .user-info {
       display: flex;
       align-items: center;
       gap: 12px;
+      color: #e0e0e0;
     }
 
     .user-avatar {
@@ -1641,6 +1646,7 @@ async function handleAdminDashboard(request, env) {
       cursor: pointer;
       border: none;
       transition: all 0.2s;
+      display: inline-block;
     }
 
     .btn-primary {
@@ -1653,12 +1659,13 @@ async function handleAdminDashboard(request, env) {
     }
 
     .btn-secondary {
-      background: #e0e0e0;
-      color: #333;
+      background: #2d2d2d;
+      color: #e0e0e0;
+      border: 1px solid #404040;
     }
 
     .btn-secondary:hover {
-      background: #d0d0d0;
+      background: #353535;
     }
 
     .container {
@@ -1674,11 +1681,15 @@ async function handleAdminDashboard(request, env) {
       margin-bottom: 24px;
     }
 
+    .actions h2 {
+      color: #ffffff;
+    }
+
     .posts-table {
-      background: white;
+      background: #1a1a1a;
+      border: 1px solid #2d2d2d;
       border-radius: 8px;
       overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
     table {
@@ -1687,23 +1698,24 @@ async function handleAdminDashboard(request, env) {
     }
 
     th {
-      background: #f9f9f9;
+      background: #212121;
       padding: 12px 16px;
       text-align: left;
       font-weight: 600;
       font-size: 14px;
-      color: #666;
-      border-bottom: 1px solid #e0e0e0;
+      color: #b0b0b0;
+      border-bottom: 1px solid #2d2d2d;
     }
 
     td {
       padding: 16px;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid #2d2d2d;
       font-size: 14px;
+      color: #e0e0e0;
     }
 
     tr:hover {
-      background: #fafafa;
+      background: #212121;
     }
 
     .post-preview {
@@ -1742,12 +1754,20 @@ async function handleAdminDashboard(request, env) {
     .empty-state {
       text-align: center;
       padding: 60px 20px;
-      color: #666;
+      color: #b0b0b0;
     }
 
     .empty-state h2 {
       margin-bottom: 12px;
-      color: #333;
+      color: #e0e0e0;
+    }
+
+    code {
+      background: #2d2d2d;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
     }
   </style>
 </head>
@@ -1859,12 +1879,12 @@ async function handleNewPost(env) {
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: #f5f5f5;
+      background: #0f0f0f;
     }
 
     .header {
-      background: white;
-      border-bottom: 1px solid #e0e0e0;
+      background: #1a1a1a;
+      border-bottom: 1px solid #2d2d2d;
       padding: 16px 24px;
       display: flex;
       justify-content: space-between;
@@ -1873,7 +1893,7 @@ async function handleNewPost(env) {
 
     .header h1 {
       font-size: 20px;
-      color: #333;
+      color: #ffffff;
     }
 
     .header-actions {
@@ -1903,17 +1923,18 @@ async function handleNewPost(env) {
     }
 
     .btn-primary:disabled {
-      background: #ccc;
+      background: #555;
       cursor: not-allowed;
     }
 
     .btn-secondary {
-      background: #e0e0e0;
-      color: #333;
+      background: #2d2d2d;
+      color: #e0e0e0;
+      border: 1px solid #404040;
     }
 
     .btn-secondary:hover {
-      background: #d0d0d0;
+      background: #353535;
     }
 
     .container {
@@ -1923,10 +1944,10 @@ async function handleNewPost(env) {
     }
 
     .editor-container {
-      background: white;
+      background: #1a1a1a;
+      border: 1px solid #2d2d2d;
       border-radius: 8px;
       padding: 24px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
     .form-group {
@@ -1937,61 +1958,83 @@ async function handleNewPost(env) {
       display: block;
       margin-bottom: 8px;
       font-weight: 600;
-      color: #333;
+      color: #e0e0e0;
       font-size: 14px;
     }
 
     textarea {
       width: 100%;
       padding: 12px;
-      border: 1px solid #ddd;
+      background: #2d2d2d;
+      border: 1px solid #404040;
       border-radius: 6px;
       font-size: 15px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
       resize: vertical;
       min-height: 200px;
+      color: #e0e0e0;
     }
 
     textarea:focus {
       outline: none;
       border-color: #1da1f2;
+      background: #353535;
     }
 
     input[type="text"],
     input[type="file"] {
       width: 100%;
       padding: 10px 12px;
-      border: 1px solid #ddd;
+      background: #2d2d2d;
+      border: 1px solid #404040;
       border-radius: 6px;
       font-size: 14px;
+      color: #e0e0e0;
     }
 
-    input:focus {
+    input[type="text"]:focus {
       outline: none;
       border-color: #1da1f2;
+      background: #353535;
+    }
+
+    input[type="file"]::file-selector-button {
+      background: #404040;
+      color: #e0e0e0;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 12px;
+    }
+
+    input[type="file"]::file-selector-button:hover {
+      background: #4a4a4a;
     }
 
     .preview {
       margin-top: 24px;
       padding-top: 24px;
-      border-top: 1px solid #e0e0e0;
+      border-top: 1px solid #2d2d2d;
     }
 
     .preview h3 {
       margin-bottom: 12px;
-      color: #333;
+      color: #e0e0e0;
     }
 
     .preview-content {
       padding: 16px;
-      background: #f9f9f9;
+      background: #212121;
+      border: 1px solid #2d2d2d;
       border-radius: 6px;
       min-height: 100px;
+      color: #e0e0e0;
     }
 
     .help-text {
       font-size: 13px;
-      color: #666;
+      color: #b0b0b0;
       margin-top: 4px;
     }
 
@@ -2003,12 +2046,12 @@ async function handleNewPost(env) {
     .image-preview img {
       max-width: 100%;
       border-radius: 8px;
-      border: 1px solid #ddd;
+      border: 1px solid #404040;
     }
 
     .loading {
       display: none;
-      color: #666;
+      color: #b0b0b0;
       margin-left: 12px;
     }
 
@@ -2191,12 +2234,12 @@ async function handleEditPost(env, postId) {
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: #f5f5f5;
+      background: #0f0f0f;
     }
 
     .header {
-      background: white;
-      border-bottom: 1px solid #e0e0e0;
+      background: #1a1a1a;
+      border-bottom: 1px solid #2d2d2d;
       padding: 16px 24px;
       display: flex;
       justify-content: space-between;
@@ -2205,7 +2248,7 @@ async function handleEditPost(env, postId) {
 
     .header h1 {
       font-size: 20px;
-      color: #333;
+      color: #ffffff;
     }
 
     .header-actions {
@@ -2235,17 +2278,18 @@ async function handleEditPost(env, postId) {
     }
 
     .btn-primary:disabled {
-      background: #ccc;
+      background: #555;
       cursor: not-allowed;
     }
 
     .btn-secondary {
-      background: #e0e0e0;
-      color: #333;
+      background: #2d2d2d;
+      color: #e0e0e0;
+      border: 1px solid #404040;
     }
 
     .btn-secondary:hover {
-      background: #d0d0d0;
+      background: #353535;
     }
 
     .container {
@@ -2255,10 +2299,10 @@ async function handleEditPost(env, postId) {
     }
 
     .editor-container {
-      background: white;
+      background: #1a1a1a;
+      border: 1px solid #2d2d2d;
       border-radius: 8px;
       padding: 24px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
     .form-group {
@@ -2269,61 +2313,83 @@ async function handleEditPost(env, postId) {
       display: block;
       margin-bottom: 8px;
       font-weight: 600;
-      color: #333;
+      color: #e0e0e0;
       font-size: 14px;
     }
 
     textarea {
       width: 100%;
       padding: 12px;
-      border: 1px solid #ddd;
+      background: #2d2d2d;
+      border: 1px solid #404040;
       border-radius: 6px;
       font-size: 15px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
       resize: vertical;
       min-height: 200px;
+      color: #e0e0e0;
     }
 
     textarea:focus {
       outline: none;
       border-color: #1da1f2;
+      background: #353535;
     }
 
     input[type="text"],
     input[type="file"] {
       width: 100%;
       padding: 10px 12px;
-      border: 1px solid #ddd;
+      background: #2d2d2d;
+      border: 1px solid #404040;
       border-radius: 6px;
       font-size: 14px;
+      color: #e0e0e0;
     }
 
-    input:focus {
+    input[type="text"]:focus {
       outline: none;
       border-color: #1da1f2;
+      background: #353535;
+    }
+
+    input[type="file"]::file-selector-button {
+      background: #404040;
+      color: #e0e0e0;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 12px;
+    }
+
+    input[type="file"]::file-selector-button:hover {
+      background: #4a4a4a;
     }
 
     .preview {
       margin-top: 24px;
       padding-top: 24px;
-      border-top: 1px solid #e0e0e0;
+      border-top: 1px solid #2d2d2d;
     }
 
     .preview h3 {
       margin-bottom: 12px;
-      color: #333;
+      color: #e0e0e0;
     }
 
     .preview-content {
       padding: 16px;
-      background: #f9f9f9;
+      background: #212121;
+      border: 1px solid #2d2d2d;
       border-radius: 6px;
       min-height: 100px;
+      color: #e0e0e0;
     }
 
     .help-text {
       font-size: 13px;
-      color: #666;
+      color: #b0b0b0;
       margin-top: 4px;
     }
 
@@ -2335,7 +2401,7 @@ async function handleEditPost(env, postId) {
     .current-image img {
       max-width: 100%;
       border-radius: 8px;
-      border: 1px solid #ddd;
+      border: 1px solid #404040;
     }
 
     .image-preview {
@@ -2346,12 +2412,12 @@ async function handleEditPost(env, postId) {
     .image-preview img {
       max-width: 100%;
       border-radius: 8px;
-      border: 1px solid #ddd;
+      border: 1px solid #404040;
     }
 
     .loading {
       display: none;
-      color: #666;
+      color: #b0b0b0;
       margin-left: 12px;
     }
 
