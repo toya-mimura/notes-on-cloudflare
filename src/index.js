@@ -1363,7 +1363,7 @@ async function handleIndexPage(env) {
     <!-- ヘッダー -->
     <header>
       <a href="/" class="logo" x-text="siteName"></a>
-      <a href="/auth/google" class="login-btn">Login</a>
+      <a href="/login" class="login-btn">Login</a>
     </header>
 
     <!-- タグナビゲーション -->
