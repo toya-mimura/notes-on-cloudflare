@@ -2041,12 +2041,38 @@ async function handleNewPost(env) {
     .image-preview {
       margin-top: 12px;
       max-width: 400px;
+      position: relative;
     }
 
     .image-preview img {
       max-width: 100%;
       border-radius: 8px;
       border: 1px solid #404040;
+      display: block;
+    }
+
+    .image-preview .remove-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(220, 53, 69, 0.9);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .image-preview .remove-btn:hover {
+      background: rgba(220, 53, 69, 1);
+      transform: scale(1.1);
     }
 
     .loading {
@@ -2116,10 +2142,18 @@ async function handleNewPost(env) {
       if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = (e) => {
-          previewDiv.innerHTML = '<img src="' + e.target.result + '" alt="Preview">';
+          previewDiv.innerHTML = '<img src="' + e.target.result + '" alt="Preview"><button class="remove-btn" onclick="removeImage()" title="画像を削除">×</button>';
         };
         reader.readAsDataURL(input.files[0]);
       }
+    }
+
+    // 画像削除
+    function removeImage() {
+      const imageInput = document.getElementById('image');
+      const previewDiv = document.getElementById('imagePreview');
+      imageInput.value = '';
+      previewDiv.innerHTML = '';
     }
 
     // 投稿送信
@@ -2396,23 +2430,75 @@ async function handleEditPost(env, postId) {
     .current-image {
       margin-top: 12px;
       max-width: 400px;
+      position: relative;
     }
 
     .current-image img {
       max-width: 100%;
       border-radius: 8px;
       border: 1px solid #404040;
+      display: block;
+    }
+
+    .current-image .remove-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(220, 53, 69, 0.9);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .current-image .remove-btn:hover {
+      background: rgba(220, 53, 69, 1);
+      transform: scale(1.1);
     }
 
     .image-preview {
       margin-top: 12px;
       max-width: 400px;
+      position: relative;
     }
 
     .image-preview img {
       max-width: 100%;
       border-radius: 8px;
       border: 1px solid #404040;
+      display: block;
+    }
+
+    .image-preview .remove-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(220, 53, 69, 0.9);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .image-preview .remove-btn:hover {
+      background: rgba(220, 53, 69, 1);
+      transform: scale(1.1);
     }
 
     .loading {
@@ -2447,9 +2533,10 @@ async function handleEditPost(env, postId) {
       <div class="form-group">
         <label for="image">画像</label>
         ${post.image_url ? `
-          <div class="current-image">
+          <div class="current-image" id="currentImage">
             <div class="help-text">現在の画像:</div>
             <img src="${post.image_url}" alt="Current">
+            <button class="remove-btn" onclick="removeCurrentImage()" title="現在の画像を削除">×</button>
           </div>
         ` : ''}
         <input type="file" id="image" accept="image/*" onchange="previewImage(this)" style="margin-top: 12px;">
@@ -2491,9 +2578,25 @@ async function handleEditPost(env, postId) {
       if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = (e) => {
-          previewDiv.innerHTML = '<img src="' + e.target.result + '" alt="Preview">';
+          previewDiv.innerHTML = '<img src="' + e.target.result + '" alt="Preview"><button class="remove-btn" onclick="removeImage()" title="画像を削除">×</button>';
         };
         reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    // 画像削除
+    function removeImage() {
+      const imageInput = document.getElementById('image');
+      const previewDiv = document.getElementById('imagePreview');
+      imageInput.value = '';
+      previewDiv.innerHTML = '';
+    }
+
+    // 現在の画像を削除
+    function removeCurrentImage() {
+      const currentImageDiv = document.getElementById('currentImage');
+      if (currentImageDiv && confirm('現在の画像を削除しますか？保存時に画像なしで更新されます。')) {
+        currentImageDiv.style.display = 'none';
       }
     }
 
@@ -2516,6 +2619,12 @@ async function handleEditPost(env, postId) {
 
       try {
         let imageUrl = '${post.image_url || ''}';
+
+        // 現在の画像が削除された場合
+        const currentImageDiv = document.getElementById('currentImage');
+        if (currentImageDiv && currentImageDiv.style.display === 'none') {
+          imageUrl = null;
+        }
 
         // 新しい画像がアップロードされた場合
         if (imageFile) {
