@@ -568,6 +568,17 @@ async function handleAPI(request, env, pathname) {
     return handleGetLikes(request, env, postId);
   }
 
+  // PUT /api/posts/:id/pin - 固定投稿設定/解除
+  if (pathname.match(/^\/api\/posts\/[^/]+\/pin$/) && method === 'PUT') {
+    // 認証チェック
+    const authenticated = await isAuthenticated(request, env);
+    if (!authenticated) {
+      return jsonResponse({ error: 'Unauthorized' }, 401);
+    }
+    const postId = pathname.split('/')[3];
+    return handleTogglePin(request, env, postId);
+  }
+
   // POST /api/upload - 画像アップロード
   if (pathname === '/api/upload' && method === 'POST') {
     // 認証チェック
@@ -926,6 +937,40 @@ async function handleGetLikes(request, env, postId) {
   } catch (error) {
     console.error('Error fetching likes:', error);
     return jsonResponse({ error: 'Failed to fetch likes' }, 500);
+  }
+}
+
+/**
+ * PUT /api/posts/:id/pin - 固定投稿設定/解除
+ */
+async function handleTogglePin(request, env, postId) {
+  try {
+    const body = await request.json();
+    const isPinned = body.is_pinned;
+
+    if (typeof isPinned !== 'boolean') {
+      return jsonResponse({ error: 'is_pinned must be a boolean' }, 400);
+    }
+
+    // 既に固定投稿がある場合は、それを解除する
+    if (isPinned) {
+      await env.DB.prepare(
+        'UPDATE posts SET is_pinned = 0 WHERE is_pinned = 1'
+      ).run();
+    }
+
+    // 指定された投稿の固定状態を設定
+    await env.DB.prepare(
+      'UPDATE posts SET is_pinned = ? WHERE id = ?'
+    ).bind(isPinned ? 1 : 0, postId).run();
+
+    return jsonResponse({
+      success: true,
+      is_pinned: isPinned
+    });
+  } catch (error) {
+    console.error('Error toggling pin:', error);
+    return jsonResponse({ error: 'Failed to toggle pin' }, 500);
   }
 }
 
@@ -1582,7 +1627,7 @@ async function handleAdminDashboard(request, env) {
 
   // 投稿一覧を取得
   const posts = await env.DB.prepare(
-    'SELECT id, content, image_url, created_at FROM posts ORDER BY created_at DESC LIMIT 50'
+    'SELECT id, content, image_url, is_pinned, created_at FROM posts ORDER BY created_at DESC LIMIT 50'
   ).all();
 
   const html = `
@@ -1769,6 +1814,83 @@ async function handleAdminDashboard(request, env) {
       font-family: 'Courier New', monospace;
       font-size: 13px;
     }
+
+    .menu-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    .menu-btn {
+      background: #2d2d2d;
+      color: #e0e0e0;
+      border: 1px solid #404040;
+      border-radius: 4px;
+      width: 32px;
+      height: 32px;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .menu-btn:hover {
+      background: #353535;
+      border-color: #505050;
+    }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 36px;
+      background: #1a1a1a;
+      border: 1px solid #404040;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      min-width: 180px;
+      z-index: 1000;
+    }
+
+    .dropdown-menu.show {
+      display: block;
+    }
+
+    .dropdown-item {
+      padding: 10px 16px;
+      color: #e0e0e0;
+      cursor: pointer;
+      font-size: 14px;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      transition: background 0.2s;
+    }
+
+    .dropdown-item:hover {
+      background: #2d2d2d;
+    }
+
+    .dropdown-item:first-child {
+      border-radius: 6px 6px 0 0;
+    }
+
+    .dropdown-item:last-child {
+      border-radius: 0 0 6px 6px;
+    }
+
+    .pin-badge {
+      display: inline-block;
+      background: #1da1f2;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-left: 8px;
+    }
   </style>
 </head>
 <body>
@@ -1804,7 +1926,10 @@ async function handleAdminDashboard(request, env) {
           <tbody>
             ${posts.results.map(post => `
               <tr>
-                <td><code>${post.id}</code></td>
+                <td>
+                  <code>${post.id}</code>
+                  ${post.is_pinned ? '<span class="pin-badge">📌 固定</span>' : ''}
+                </td>
                 <td class="post-preview">${post.content.substring(0, 100).replace(/<[^>]*>/g, '')}...</td>
                 <td>
                   ${post.image_url ? `<img src="${post.image_url}" alt="" class="post-image">` : '-'}
@@ -1813,6 +1938,14 @@ async function handleAdminDashboard(request, env) {
                 <td class="post-actions">
                   <a href="/admin/posts/${post.id}/edit" class="btn btn-secondary btn-small">編集</a>
                   <button onclick="deletePost('${post.id}')" class="btn btn-danger btn-small">削除</button>
+                  <div class="menu-container">
+                    <button class="menu-btn" onclick="toggleMenu(event, '${post.id}')">⋮</button>
+                    <div class="dropdown-menu" id="menu-${post.id}">
+                      <button class="dropdown-item" onclick="togglePin('${post.id}', ${post.is_pinned ? 'false' : 'true'})">
+                        ${post.is_pinned ? '📌 固定を解除' : '📌 固定記事にする'}
+                      </button>
+                    </div>
+                  </div>
                 </td>
               </tr>
             `).join('')}
@@ -1850,6 +1983,50 @@ async function handleAdminDashboard(request, env) {
         alert('エラーが発生しました: ' + error.message);
       }
     }
+
+    function toggleMenu(event, postId) {
+      event.stopPropagation();
+      const menu = document.getElementById('menu-' + postId);
+      const allMenus = document.querySelectorAll('.dropdown-menu');
+
+      // 他のメニューを閉じる
+      allMenus.forEach(m => {
+        if (m.id !== 'menu-' + postId) {
+          m.classList.remove('show');
+        }
+      });
+
+      // クリックしたメニューをトグル
+      menu.classList.toggle('show');
+    }
+
+    async function togglePin(postId, isPinned) {
+      try {
+        const response = await fetch('/api/posts/' + postId + '/pin', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ is_pinned: isPinned })
+        });
+
+        if (response.ok) {
+          alert(isPinned ? '固定記事に設定しました' : '固定を解除しました');
+          location.reload();
+        } else {
+          alert('設定の変更に失敗しました');
+        }
+      } catch (error) {
+        alert('エラーが発生しました: ' + error.message);
+      }
+    }
+
+    // ページ外をクリックしたらメニューを閉じる
+    document.addEventListener('click', function() {
+      document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        menu.classList.remove('show');
+      });
+    });
   </script>
 </body>
 </html>
