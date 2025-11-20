@@ -1065,7 +1065,7 @@ async function handleImageGet(env, filename) {
  * トップページハンドラー
  */
 async function handleIndexPage(env) {
-  const siteName = env.SITE_NAME || 'My Blog';
+  const siteName = env.SITE_NAME || 'Journal';
 
   const html = `
 <!DOCTYPE html>
@@ -1079,15 +1079,15 @@ async function handleIndexPage(env) {
   <style>
     :root {
       --color-primary: #3965a0ff;
-      --color-primary-dark: #0d668fff;
+      --color-primary-dark: #383933;
       --color-bg: #3d3b3bff;
       --color-bg-secondary: #181818ff;
-      --color-text: #bcbeb2ff;
+      --color-text: #8f8b7c;
       --color-text-secondary: #666666;
       --color-text-muted: #999999;
-      --color-border: #b4c5c9ff;
+      --color-border: #333435;
       --color-like: #687428ff;
-      --color-tag: #721b31ff;
+      --color-tag: #737550;
       --color-spoiler-bg: #686767ff;
       --color-spoiler-overlay: rgba(32, 32, 32, 0.8);
     }
