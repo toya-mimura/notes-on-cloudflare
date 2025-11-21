@@ -852,6 +852,7 @@ async function handleGetTags(env) {
       FROM tags t
       LEFT JOIN post_tags pt ON t.id = pt.tag_id
       GROUP BY t.id, t.name
+      HAVING count > 0
       ORDER BY count DESC, t.name ASC
     `).all();
 
@@ -1195,6 +1196,14 @@ async function handleIndexPage(env) {
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
 
+    .post-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 12px;
+    }
+
     .pinned-badge {
       display: inline-block;
       background-color: var(--color-primary);
@@ -1202,7 +1211,6 @@ async function handleIndexPage(env) {
       padding: 4px 12px;
       border-radius: 4px;
       font-size: 12px;
-      margin-bottom: 12px;
     }
 
     .post-content {
@@ -1424,8 +1432,11 @@ async function handleIndexPage(env) {
 
     <template x-for="post in filteredPosts" :key="post.id">
       <article class="post-card">
-        <!-- 固定投稿バッジ -->
-        <div x-show="post.is_pinned" class="pinned-badge">📌 固定投稿</div>
+        <!-- ヘッダー（固定バッジ & タイムスタンプ） -->
+        <div class="post-header">
+          <div x-show="post.is_pinned" class="pinned-badge">📌 固定投稿</div>
+          <a :href="'/post/' + post.id" class="post-timestamp" x-text="formatTimestamp(post.created_at)"></a>
+        </div>
 
         <!-- 本文 -->
         <div class="post-content" x-html="renderMarkdown(post.content, post.id)"></div>
@@ -1472,8 +1483,6 @@ async function handleIndexPage(env) {
           <button class="share-btn" @click="sharePost(post.id)">
             🔗 共有
           </button>
-
-          <a :href="'/post/' + post.id" class="post-timestamp" x-text="formatTimestamp(post.created_at)"></a>
         </div>
       </article>
     </template>
@@ -1897,6 +1906,7 @@ async function handleAdminDashboard(request, env) {
   <div class="header">
     <div class="header-left">
       <h1>📝 ブログ管理画面</h1>
+      <a href="/" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">🔗 View</a>
     </div>
     <div class="user-info">
       ${session?.picture ? `<img src="${session.picture}" alt="${session.name}" class="user-avatar">` : ''}
@@ -3073,6 +3083,9 @@ async function handlePostPage(env, postId) {
     <a href="/" class="back-btn">← 戻る</a>
 
     <article>
+      <!-- タイムスタンプ -->
+      <div class="post-timestamp" x-text="formatTimestamp(post.created_at)" style="margin-bottom: 12px; text-align: right;"></div>
+
       <div class="post-content" x-html="renderMarkdown(post.content)"></div>
 
       <template x-if="post.image_url">
@@ -3099,8 +3112,6 @@ async function handlePostPage(env, postId) {
           🔗 共有
         </button>
       </div>
-
-      <div class="post-timestamp" x-text="formatTimestamp(post.created_at)"></div>
     </article>
   </div>
 
