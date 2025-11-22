@@ -1140,6 +1140,23 @@ async function handleIndexPage(env) {
       background-color: var(--color-primary-dark);
     }
 
+    .list-btn {
+      padding: 8px 16px;
+      background-color: var(--color-secondary);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .list-btn:hover {
+      background-color: var(--color-spoiler-bg);
+      border-color: var(--color-primary);
+    }
+
     /* タグナビゲーション */
     .tag-nav {
       display: flex;
@@ -1446,7 +1463,10 @@ async function handleIndexPage(env) {
     <!-- ヘッダー -->
     <header>
       <a href="/" class="logo" x-text="siteName"></a>
-      <a href="/login" class="login-btn">Login</a>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <a href="/listview" class="list-btn">📚 一覧表示</a>
+        <a href="/login" class="login-btn">Login</a>
+      </div>
     </header>
 
     <!-- タグナビゲーション -->
@@ -1686,6 +1706,455 @@ async function handleIndexPage(env) {
           if (img) {
             img.classList.add('revealed');
           }
+        }
+      }
+    }
+  </script>
+</body>
+</html>
+  `;
+
+  return htmlResponse(html);
+}
+
+/**
+ * リストビューページ
+ */
+async function handleListViewPage(env) {
+  const siteName = env.SITE_NAME || 'Blog';
+
+  const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>記事一覧 - ${siteName}</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root {
+      --color-bg: #0f0f0f;
+      --color-secondary: #1a1a1a;
+      --color-border: #2d2d2d;
+      --color-text: #e0e0e0;
+      --color-text-secondary: #a0a0a0;
+      --color-primary: #1da1f2;
+      --color-primary-dark: #1a91da;
+      --color-like: #f91880;
+      --color-spoiler-bg: #1e1e1e;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background-color: var(--color-bg);
+      color: var(--color-text);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* ヘッダー */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 0;
+      margin-bottom: 30px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--color-text);
+      text-decoration: none;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      text-decoration: none;
+      border: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background-color: var(--color-primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--color-primary-dark);
+    }
+
+    .btn-secondary {
+      background-color: var(--color-secondary);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--color-spoiler-bg);
+    }
+
+    /* タグナビゲーション */
+    .tag-nav {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+    }
+
+    .tag-item {
+      padding: 6px 14px;
+      background-color: var(--color-secondary);
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .tag-item:hover {
+      background-color: var(--color-spoiler-bg);
+    }
+
+    .tag-item.active {
+      background-color: var(--color-primary);
+      color: white;
+    }
+
+    /* コントロール */
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 16px;
+      background-color: var(--color-secondary);
+      border-radius: 8px;
+    }
+
+    .sort-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .sort-btn {
+      padding: 6px 12px;
+      background-color: var(--color-bg);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .sort-btn:hover {
+      background-color: var(--color-spoiler-bg);
+    }
+
+    .sort-btn.active {
+      background-color: var(--color-primary);
+      border-color: var(--color-primary);
+      color: white;
+    }
+
+    /* リストテーブル */
+    .list-table {
+      background-color: var(--color-secondary);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .list-item {
+      padding: 16px;
+      border-bottom: 1px solid var(--color-border);
+      transition: background-color 0.2s;
+    }
+
+    .list-item:hover {
+      background-color: var(--color-spoiler-bg);
+    }
+
+    .list-item:last-child {
+      border-bottom: none;
+    }
+
+    .list-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+      gap: 12px;
+    }
+
+    .list-item-title {
+      flex: 1;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--color-text);
+      text-decoration: none;
+      line-height: 1.4;
+    }
+
+    .list-item-title:hover {
+      color: var(--color-primary);
+    }
+
+    .list-item-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--color-text-secondary);
+    }
+
+    .image-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background-color: var(--color-bg);
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .post-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .tag {
+      padding: 4px 10px;
+      background-color: var(--color-bg);
+      color: var(--color-primary);
+      border-radius: 12px;
+      font-size: 13px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .tag:hover {
+      background-color: var(--color-primary);
+      color: white;
+    }
+
+    .pinned-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      background-color: var(--color-primary);
+      color: white;
+      border-radius: 4px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--color-text-secondary);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--color-text-secondary);
+    }
+
+    @media (max-width: 640px) {
+      .list-item-header {
+        flex-direction: column;
+      }
+
+      .controls {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+      }
+
+      .sort-buttons {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" x-data="listViewApp()">
+    <!-- ヘッダー -->
+    <header>
+      <a href="/" class="logo" x-text="siteName"></a>
+      <div class="header-actions">
+        <a href="/" class="btn btn-secondary">← ホームへ</a>
+        <a href="/login" class="btn btn-primary">Login</a>
+      </div>
+    </header>
+
+    <h1 style="font-size: 28px; margin-bottom: 24px;">📚 記事一覧</h1>
+
+    <!-- タグナビゲーション -->
+    <div class="tag-nav">
+      <span class="tag-item" :class="{ 'active': selectedTag === null }" @click="filterByTag(null)">すべて</span>
+      <template x-for="tag in tags" :key="tag.id">
+        <span class="tag-item" :class="{ 'active': selectedTag === tag.name }" @click="filterByTag(tag.name)" x-text="tag.name + ' (' + tag.count + ')'"></span>
+      </template>
+    </div>
+
+    <!-- コントロール -->
+    <div class="controls">
+      <div>
+        <span style="color: var(--color-text-secondary); font-size: 14px;">
+          <span x-text="posts.length"></span>件の記事
+        </span>
+      </div>
+      <div class="sort-buttons">
+        <button class="sort-btn" :class="{ 'active': sortOrder === 'desc' }" @click="sortOrder = 'desc'">
+          新しい順
+        </button>
+        <button class="sort-btn" :class="{ 'active': sortOrder === 'asc' }" @click="sortOrder = 'asc'">
+          古い順
+        </button>
+      </div>
+    </div>
+
+    <!-- 読み込み中 -->
+    <div x-show="loading" class="loading">読み込み中...</div>
+
+    <!-- 記事リスト -->
+    <div x-show="!loading && sortedPosts.length > 0" class="list-table">
+      <template x-for="post in sortedPosts" :key="post.id">
+        <div class="list-item">
+          <div class="list-item-header">
+            <a :href="'/post/' + post.id" class="list-item-title">
+              <span x-show="post.is_pinned" class="pinned-badge">📌</span>
+              <span x-text="getPostTitle(post.content)"></span>
+            </a>
+          </div>
+          <div class="list-item-meta">
+            <span x-text="formatDate(post.created_at)"></span>
+            <span x-show="post.image_url" class="image-indicator">🖼️ 画像あり</span>
+          </div>
+          <div class="post-tags" x-show="post.tags && post.tags.length > 0">
+            <template x-for="tag in post.tags" :key="tag">
+              <a href="#" class="tag" @click.prevent="filterByTag(tag)" x-text="'#' + tag"></a>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- 空の状態 -->
+    <div x-show="!loading && sortedPosts.length === 0" class="empty-state">
+      <p style="font-size: 18px; margin-bottom: 8px;">記事が見つかりませんでした</p>
+      <p style="font-size: 14px;">別のタグを選択してみてください</p>
+    </div>
+  </div>
+
+  <script>
+    function listViewApp() {
+      return {
+        siteName: '${siteName}',
+        posts: [],
+        tags: [],
+        selectedTag: null,
+        loading: true,
+        sortOrder: 'desc', // 'desc' or 'asc'
+
+        async init() {
+          await this.loadTags();
+          await this.loadPosts();
+          this.loading = false;
+        },
+
+        async loadPosts() {
+          try {
+            let url = '/api/posts?limit=1000'; // 全記事取得
+            if (this.selectedTag) {
+              url += '&tag=' + encodeURIComponent(this.selectedTag);
+            }
+
+            const response = await fetch(url);
+            const data = await response.json();
+            this.posts = data.posts || [];
+          } catch (error) {
+            console.error('Failed to load posts:', error);
+          }
+        },
+
+        async loadTags() {
+          try {
+            const response = await fetch('/api/tags');
+            const data = await response.json();
+            this.tags = data.tags || [];
+          } catch (error) {
+            console.error('Failed to load tags:', error);
+          }
+        },
+
+        async filterByTag(tagName) {
+          this.selectedTag = tagName;
+          this.loading = true;
+          await this.loadPosts();
+          this.loading = false;
+        },
+
+        get sortedPosts() {
+          const sorted = [...this.posts];
+          if (this.sortOrder === 'asc') {
+            return sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+          } else {
+            return sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          }
+        },
+
+        getPostTitle(content) {
+          if (!content) return '無題';
+
+          // Markdownのヘッダーを抽出
+          const lines = content.split('\\n');
+          for (let line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('# ')) {
+              return trimmed.replace(/^#\\s+/, '');
+            }
+          }
+
+          // ヘッダーがない場合、最初の行を取得（最大50文字）
+          const firstLine = lines[0]?.trim() || '';
+          return firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine || '無題';
+        },
+
+        formatDate(timestamp) {
+          if (!timestamp) return '';
+
+          const date = new Date(timestamp);
+          return date.getFullYear() + '年' +
+                 (date.getMonth() + 1) + '月' +
+                 date.getDate() + '日 ' +
+                 date.getHours().toString().padStart(2, '0') + ':' +
+                 date.getMinutes().toString().padStart(2, '0');
         }
       }
     }
@@ -3397,6 +3866,11 @@ export default {
     // トップページ
     if (pathname === '/' || pathname === '/index.html') {
       return handleIndexPage(env);
+    }
+
+    // リストビューページ
+    if (pathname === '/listview') {
+      return handleListViewPage(env);
     }
 
     // 404
