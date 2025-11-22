@@ -599,57 +599,52 @@ async function handleGetPosts(request, env) {
   const url = new URL(request.url);
   const tag = url.searchParams.get('tag');
   const pinned = url.searchParams.get('pinned');
-  const limit = parseInt(url.searchParams.get('limit') || '20');
+  const limit = parseInt(url.searchParams.get('limit') || '10');
   const offset = parseInt(url.searchParams.get('offset') || '0');
 
   try {
-    let query = 'SELECT * FROM posts';
+    let query = `
+      SELECT
+        p.*,
+        GROUP_CONCAT(t.name) as tags,
+        COALESCE((SELECT COUNT(*) FROM likes WHERE post_id = p.id), 0) as likes
+      FROM posts p
+      LEFT JOIN post_tags pt ON p.id = pt.post_id
+      LEFT JOIN tags t ON pt.tag_id = t.id
+    `;
     let bindings = [];
+    let whereConditions = [];
 
     if (pinned === 'true') {
-      query += ' WHERE is_pinned = 1';
+      whereConditions.push('p.is_pinned = 1');
     }
 
     if (tag) {
-      query = `
-        SELECT p.* FROM posts p
-        JOIN post_tags pt ON p.id = pt.post_id
-        JOIN tags t ON pt.tag_id = t.id
-        WHERE t.name = ?
-      `;
+      whereConditions.push(`p.id IN (
+        SELECT p2.id FROM posts p2
+        JOIN post_tags pt2 ON p2.id = pt2.post_id
+        JOIN tags t2 ON pt2.tag_id = t2.id
+        WHERE t2.name = ?
+      )`);
       bindings.push(tag);
-
-      if (pinned === 'true') {
-        query += ' AND p.is_pinned = 1';
-      }
     }
 
-    query += ' ORDER BY is_pinned DESC, created_at DESC LIMIT ? OFFSET ?';
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ');
+    }
+
+    query += ' GROUP BY p.id ORDER BY p.is_pinned DESC, p.created_at DESC LIMIT ? OFFSET ?';
     bindings.push(limit, offset);
 
     const stmt = env.DB.prepare(query).bind(...bindings);
     const { results } = await stmt.all();
 
-    // 各投稿のタグといいね数を取得
-    for (let post of results) {
-      // タグを取得
-      const tagsStmt = env.DB.prepare(`
-        SELECT t.name FROM tags t
-        JOIN post_tags pt ON t.id = pt.tag_id
-        WHERE pt.post_id = ?
-      `).bind(post.id);
-      const { results: tags } = await tagsStmt.all();
-      post.tags = tags.map(t => t.name);
+    // タグを配列に変換
+    results.forEach(post => {
+      post.tags = post.tags ? post.tags.split(',') : [];
+    });
 
-      // いいね数を取得
-      const likesStmt = env.DB.prepare(
-        'SELECT COUNT(*) as count FROM likes WHERE post_id = ?'
-      ).bind(post.id);
-      const likesResult = await likesStmt.first();
-      post.likes = likesResult.count;
-    }
-
-    return jsonResponse({ posts: results });
+    return jsonResponse({ posts: results, hasMore: results.length === limit });
   } catch (error) {
     console.error('Error fetching posts:', error);
     return jsonResponse({ error: 'Failed to fetch posts' }, 500);
@@ -1380,6 +1375,41 @@ async function handleIndexPage(env) {
       color: var(--color-text-secondary);
     }
 
+    /* Load More Button */
+    .load-more-container {
+      text-align: center;
+      padding: 40px 0;
+    }
+
+    .load-more-btn {
+      background: var(--color-secondary);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      padding: 12px 32px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .load-more-btn:hover:not(:disabled) {
+      background: var(--color-spoiler-bg);
+      border-color: var(--color-primary);
+    }
+
+    .load-more-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .end-message {
+      text-align: center;
+      padding: 40px 0;
+      color: var(--color-text-secondary);
+      font-size: 14px;
+    }
+
     /* spoiler text */
     .spoiler {
       background: #000;
@@ -1486,6 +1516,18 @@ async function handleIndexPage(env) {
         </div>
       </article>
     </template>
+
+    <!-- Load More ボタン -->
+    <div x-show="hasMore && !loading" class="load-more-container">
+      <button @click="loadMore()" class="load-more-btn" :disabled="loadingMore">
+        <span x-show="!loadingMore">もっと読む</span>
+        <span x-show="loadingMore">読み込み中...</span>
+      </button>
+    </div>
+
+    <div x-show="!hasMore && posts.length > 0" class="end-message">
+      すべての投稿を表示しました
+    </div>
   </div>
 
   <!-- Toast -->
@@ -1499,6 +1541,10 @@ async function handleIndexPage(env) {
         tags: [],
         selectedTag: null,
         loading: true,
+        loadingMore: false,
+        hasMore: true,
+        offset: 0,
+        limit: 10,
 
         async init() {
           await this.loadTags();
@@ -1506,23 +1552,46 @@ async function handleIndexPage(env) {
           this.loading = false;
         },
 
-        async loadPosts() {
+        async loadPosts(append = false) {
           try {
-            const url = this.selectedTag
-              ? '/api/posts?tag=' + encodeURIComponent(this.selectedTag)
-              : '/api/posts';
+            if (!append) {
+              this.offset = 0;
+              this.posts = [];
+            }
+
+            let url = '/api/posts?limit=' + this.limit + '&offset=' + this.offset;
+            if (this.selectedTag) {
+              url += '&tag=' + encodeURIComponent(this.selectedTag);
+            }
+
             const response = await fetch(url);
             const data = await response.json();
-            this.posts = data.posts || [];
+            const newPosts = data.posts || [];
+            this.hasMore = data.hasMore || false;
 
             // いいね状態をローカルストレージから復元
-            this.posts.forEach(post => {
+            newPosts.forEach(post => {
               const liked = localStorage.getItem('liked_' + post.id) === 'true';
               post.liked = liked;
             });
+
+            if (append) {
+              this.posts = [...this.posts, ...newPosts];
+            } else {
+              this.posts = newPosts;
+            }
+
+            this.offset += newPosts.length;
           } catch (error) {
             console.error('Failed to load posts:', error);
           }
+        },
+
+        async loadMore() {
+          if (this.loadingMore || !this.hasMore) return;
+          this.loadingMore = true;
+          await this.loadPosts(true);
+          this.loadingMore = false;
         },
 
         async loadTags() {
@@ -1538,7 +1607,7 @@ async function handleIndexPage(env) {
         async filterByTag(tagName) {
           this.selectedTag = tagName;
           this.loading = true;
-          await this.loadPosts();
+          await this.loadPosts(false);
           this.loading = false;
         },
 
