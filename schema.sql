@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS posts (
   content TEXT NOT NULL,
   image_url TEXT,
   image_sensitive BOOLEAN DEFAULT 0,
+  content_sensitive BOOLEAN DEFAULT 0,
   is_pinned BOOLEAN DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

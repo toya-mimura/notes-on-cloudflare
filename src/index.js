@@ -695,7 +695,7 @@ async function handleCreatePost(request, env) {
 
   try {
     const body = await request.json();
-    const { content, image_url, image_sensitive, tags, is_pinned } = body;
+    const { content, image_url, image_sensitive, content_sensitive, tags, is_pinned } = body;
 
     if (!content) {
       return jsonResponse({ error: 'Content is required' }, 400);
@@ -705,12 +705,13 @@ async function handleCreatePost(request, env) {
 
     // 投稿を作成
     await env.DB.prepare(
-      'INSERT INTO posts (id, content, image_url, image_sensitive, is_pinned) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO posts (id, content, image_url, image_sensitive, content_sensitive, is_pinned) VALUES (?, ?, ?, ?, ?, ?)'
     ).bind(
       postId,
       content,
       image_url || null,
       image_sensitive ? 1 : 0,
+      content_sensitive ? 1 : 0,
       is_pinned ? 1 : 0
     ).run();
 
@@ -759,7 +760,7 @@ async function handleUpdatePost(request, env, postId) {
 
   try {
     const body = await request.json();
-    const { content, image_url, image_sensitive, tags, is_pinned } = body;
+    const { content, image_url, image_sensitive, content_sensitive, tags, is_pinned } = body;
 
     // 投稿の存在確認
     const existing = await env.DB.prepare(
@@ -773,12 +774,13 @@ async function handleUpdatePost(request, env, postId) {
     // 投稿を更新
     await env.DB.prepare(`
       UPDATE posts
-      SET content = ?, image_url = ?, image_sensitive = ?, is_pinned = ?, updated_at = CURRENT_TIMESTAMP
+      SET content = ?, image_url = ?, image_sensitive = ?, content_sensitive = ?, is_pinned = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).bind(
       content,
       image_url || null,
       image_sensitive ? 1 : 0,
+      content_sensitive ? 1 : 0,
       is_pinned ? 1 : 0,
       postId
     ).run();
@@ -1356,6 +1358,26 @@ async function handleIndexPage(env) {
       text-decoration: underline;
     }
 
+    .read-more-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin-top: 16px;
+      background-color: var(--color-secondary);
+      color: var(--color-primary);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .read-more-btn:hover {
+      background-color: var(--color-spoiler-bg);
+      border-color: var(--color-primary);
+    }
+
     .read-more {
       color: var(--color-primary);
       text-decoration: none;
@@ -1481,7 +1503,7 @@ async function handleIndexPage(env) {
     <div x-show="loading" class="loading">読み込み中...</div>
 
     <template x-for="post in filteredPosts" :key="post.id">
-      <article class="post-card">
+      <article class="post-card" x-data="{ expanded: false }">
         <!-- ヘッダー（固定バッジ & タイムスタンプ） -->
         <div class="post-header">
           <div x-show="post.is_pinned" class="pinned-badge">📌 固定投稿</div>
@@ -1489,7 +1511,14 @@ async function handleIndexPage(env) {
         </div>
 
         <!-- 本文 -->
-        <div class="post-content" x-html="renderMarkdown(post.content, post.id)"></div>
+        <div class="post-content" x-html="renderMarkdown(post.content, post.id, post.content_sensitive, expanded)"></div>
+
+        <!-- 続きを読むボタン -->
+        <template x-if="post.content_sensitive && !expanded">
+          <button @click="expanded = true" class="read-more-btn">
+            続きを読む / Read more
+          </button>
+        </template>
 
         <!-- 画像 -->
         <template x-if="post.image_url">
@@ -1674,11 +1703,18 @@ async function handleIndexPage(env) {
           }, 3000);
         },
 
-        renderMarkdown(content, postId) {
+        renderMarkdown(content, postId, contentSensitive, expanded) {
           if (!content) return '';
 
+          // content_sensitiveがtrueで、expandedがfalseの場合、最初の5行のみ表示
+          let displayContent = content;
+          if (contentSensitive && !expanded) {
+            const lines = content.split('\n');
+            displayContent = lines.slice(0, 5).join('\n');
+          }
+
           // marked.jsでMarkdownをHTMLに変換
-          let html = marked.parse(content);
+          let html = marked.parse(displayContent);
 
           return html;
         },
@@ -2834,12 +2870,25 @@ async function handleNewPost(env) {
         <input type="file" id="image" accept="image/*" onchange="previewImage(this)">
         <div class="help-text">投稿に添付する画像を選択できます</div>
         <div class="image-preview" id="imagePreview"></div>
+        <div style="margin-top: 12px;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #e0e0e0;">
+            <input type="checkbox" id="imageSensitive" style="width: auto; cursor: pointer;">
+            <span>ワンクッション設定する（すりガラス状のマスクを適用）</span>
+          </label>
+        </div>
       </div>
 
       <div class="form-group">
         <label for="tags">タグ</label>
         <input type="text" id="tags" placeholder="タグ1, タグ2, タグ3">
         <div class="help-text">カンマ区切りで複数のタグを指定できます</div>
+      </div>
+
+      <div class="form-group">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #e0e0e0;">
+          <input type="checkbox" id="contentSensitive" style="width: auto; cursor: pointer;">
+          <span>センシティブ設定する（最初の5行のみ表示し、「続きを読む」ボタンを表示）</span>
+        </label>
       </div>
 
       <div class="preview">
@@ -2886,6 +2935,8 @@ async function handleNewPost(env) {
       const content = document.getElementById('content').value.trim();
       const imageFile = document.getElementById('image').files[0];
       const tagsInput = document.getElementById('tags').value.trim();
+      const imageSensitive = document.getElementById('imageSensitive').checked;
+      const contentSensitive = document.getElementById('contentSensitive').checked;
 
       if (!content) {
         alert('内容を入力してください');
@@ -2930,6 +2981,8 @@ async function handleNewPost(env) {
           body: JSON.stringify({
             content,
             image_url: imageUrl,
+            image_sensitive: imageSensitive,
+            content_sensitive: contentSensitive,
             tags
           })
         });
@@ -3267,12 +3320,25 @@ async function handleEditPost(env, postId) {
         <input type="file" id="image" accept="image/*" onchange="previewImage(this)" style="margin-top: 12px;">
         <div class="help-text">新しい画像を選択すると、現在の画像が置き換わります</div>
         <div class="image-preview" id="imagePreview"></div>
+        <div style="margin-top: 12px;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #e0e0e0;">
+            <input type="checkbox" id="imageSensitive" ${post.image_sensitive ? 'checked' : ''} style="width: auto; cursor: pointer;">
+            <span>ワンクッション設定する（すりガラス状のマスクを適用）</span>
+          </label>
+        </div>
       </div>
 
       <div class="form-group">
         <label for="tags">タグ</label>
         <input type="text" id="tags" value="${tagsStr}" placeholder="タグ1, タグ2, タグ3">
         <div class="help-text">カンマ区切りで複数のタグを指定できます</div>
+      </div>
+
+      <div class="form-group">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #e0e0e0;">
+          <input type="checkbox" id="contentSensitive" ${post.content_sensitive ? 'checked' : ''} style="width: auto; cursor: pointer;">
+          <span>センシティブ設定する（最初の5行のみ表示し、「続きを読む」ボタンを表示）</span>
+        </label>
       </div>
 
       <div class="preview">
@@ -3330,6 +3396,8 @@ async function handleEditPost(env, postId) {
       const content = document.getElementById('content').value.trim();
       const imageFile = document.getElementById('image').files[0];
       const tagsInput = document.getElementById('tags').value.trim();
+      const imageSensitive = document.getElementById('imageSensitive').checked;
+      const contentSensitive = document.getElementById('contentSensitive').checked;
 
       if (!content) {
         alert('内容を入力してください');
@@ -3380,6 +3448,8 @@ async function handleEditPost(env, postId) {
           body: JSON.stringify({
             content,
             image_url: imageUrl || null,
+            image_sensitive: imageSensitive,
+            content_sensitive: contentSensitive,
             tags
           })
         });
@@ -3584,6 +3654,26 @@ async function handlePostPage(env, postId) {
       color: var(--color-text-secondary);
     }
 
+    .read-more-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin-top: 16px;
+      background-color: var(--color-secondary);
+      color: var(--color-primary);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .read-more-btn:hover {
+      background-color: var(--color-spoiler-bg);
+      border-color: var(--color-primary);
+    }
+
     .toast {
       position: fixed;
       bottom: 20px;
@@ -3620,11 +3710,18 @@ async function handlePostPage(env, postId) {
   <div class="container" x-data="postPage()">
     <a href="/" class="back-btn">← 戻る</a>
 
-    <article>
+    <article x-data="{ expanded: false }">
       <!-- タイムスタンプ -->
       <div class="post-timestamp" x-text="formatTimestamp(post.created_at)" style="margin-bottom: 12px; text-align: right;"></div>
 
-      <div class="post-content" x-html="renderMarkdown(post.content)"></div>
+      <div class="post-content" x-html="renderMarkdown(post.content, post.content_sensitive, expanded)"></div>
+
+      <!-- 続きを読むボタン -->
+      <template x-if="post.content_sensitive && !expanded">
+        <button @click="expanded = true" class="read-more-btn">
+          続きを読む / Read more
+        </button>
+      </template>
 
       <template x-if="post.image_url">
         <img :src="post.image_url" class="post-image" alt="投稿画像">
@@ -3713,10 +3810,17 @@ async function handlePostPage(env, postId) {
           }, 3000);
         },
 
-        renderMarkdown(content) {
+        renderMarkdown(content, contentSensitive, expanded) {
           if (!content) return '';
 
-          let html = marked.parse(content);
+          // content_sensitiveがtrueで、expandedがfalseの場合、最初の5行のみ表示
+          let displayContent = content;
+          if (contentSensitive && !expanded) {
+            const lines = content.split('\n');
+            displayContent = lines.slice(0, 5).join('\n');
+          }
+
+          let html = marked.parse(displayContent);
 
           return html;
         },
